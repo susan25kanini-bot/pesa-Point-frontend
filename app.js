@@ -1,230 +1,90 @@
-// ---- Configuration ----
-// SUPABASE_URL, SUPABASE_ANON_KEY, RENDER_BACKEND_URL and `sb` are
-// defined in the inline config block in index.html, loaded before this file.
-const API_BASE = RENDER_BACKEND_URL;
+document.addEventListener("DOMContentLoaded", () => {
+  /*
+  |--------------------------------------------------------------------------
+  | METHOD TOGGLING (WITHDRAW SCREEN)
+  |--------------------------------------------------------------------------
+  */
+  const methodBtns = document.querySelectorAll(".method-btn");
+  const methodInput = document.getElementById("withdraw-method");
+  const mpesaFields = document.getElementById("mpesa-fields");
+  const bankFields = document.getElementById("bank-fields");
+  const paypalFields = document.getElementById("paypal-fields");
 
-// ---- Auth (anonymous) ----
-async function initAuth() {
-  try {
-    let { data: { session } } = await sb.auth.getSession();
+  if (methodBtns.length > 0) {
+    methodBtns.forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
 
-    // Automatically create an anonymous user if none exists yet
-    if (!session) {
-      const { data, error } = await sb.auth.signInAnonymously();
-      if (error) throw error;
-      session = data.session;
-    }
+        methodBtns.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
 
-    currentSession = session;
+        const selectedMethod = btn.dataset.method;
+        methodInput.value = selectedMethod;
 
-    document.getElementById("authStatus").innerText = "Connected";
-    document.getElementById("userIdDisplay").innerText = session.user.id;
-
-    loadBalance();
-    loadRecentDeposits();
-
-  } catch (error) {
-    document.getElementById("authStatus").innerText = "Connection failed";
-    showBanner(error.message, "error");
-  }
-}
-
-async function authHeaders(extra = {}) {
-  const { data } = await sb.auth.getSession();
-  currentSession = data.session;
-  const token = currentSession ? currentSession.access_token : null;
-  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
-}
-
-window.addEventListener("load", initAuth);
-
-// ---- Navigation ----
-const screens = ["balance", "deposit", "withdraw", "history"];
-
-function showScreen(name) {
-  screens.forEach((s) => {
-    document.getElementById(`screen-${s}`).classList.toggle("hidden", s !== name);
-  });
-  document.querySelectorAll(".nav-btn").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.nav === name);
-  });
-
-  if (name === "balance") { loadBalance(); loadRecentDeposits(); }
-  if (name === "history") { loadHistory(currentHistoryTab); }
-}
-
-document.querySelectorAll("[data-nav]").forEach((el) => {
-  el.addEventListener("click", () => showScreen(el.dataset.nav));
-});
-
-// ---- Banner ----
-function showBanner(message, type) {
-  const banner = document.getElementById("banner");
-  banner.textContent = message;
-  banner.className = `banner ${type}`;
-  setTimeout(() => banner.classList.add("hidden"), 5000);
-}
-
-// ---- API helper ----
-async function apiFetch(path, options = {}) {
-  const headers = await authHeaders(options.headers || {});
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  let data;
-  try { data = await res.json(); } catch (e) { data = {}; }
-  if (!res.ok) {
-    throw new Error(data.error || `Request failed (${res.status})`);
-  }
-  return data;
-}
-
-// ---- Balance ----
-async function loadBalance() {
-  try {
-    const data = await apiFetch("/balance");
-    document.getElementById("balance-value").textContent =
-      Number(data.balance || 0).toLocaleString();
-  } catch (err) {
-    document.getElementById("balance-value").textContent = "0";
-    showBanner(err.message, "error");
-  }
-}
-
-async function loadRecentDeposits() {
-  const list = document.getElementById("recent-deposits");
-  try {
-    const deposits = await apiFetch("/deposits");
-    if (!deposits.length) {
-      list.innerHTML = `<li class="empty-row">No deposits yet</li>`;
-      return;
-    }
-    list.innerHTML = deposits.slice(0, 3).map(depositRow).join("");
-  } catch (err) {
-    list.innerHTML = `<li class="empty-row">Couldn't load deposits</li>`;
-  }
-}
-
-function depositRow(d) {
-  const date = new Date(d.created_at).toLocaleDateString();
-  return `<li>
-    <div>
-      <div class="row-amount">KES ${Number(d.amount).toLocaleString()}</div>
-      <div class="row-meta">${date}</div>
-    </div>
-    <span class="status-pill status-${d.status}">${d.status}</span>
-  </li>`;
-}
-
-function withdrawalRow(w) {
-  const date = new Date(w.created_at).toLocaleDateString();
-  const method = w.method === "mpesa" ? "M-Pesa" : (w.bank || "Bank");
-  return `<li>
-    <div>
-      <div class="row-amount">KES ${Number(w.amount).toLocaleString()}</div>
-      <div class="row-meta">${method} &middot; ${date}</div>
-    </div>
-    <span class="status-pill status-${w.status}">${w.status}</span>
-  </li>`;
-}
-
-// ---- Deposit form ----
-const fileInput = document.getElementById("receipt-input");
-fileInput.addEventListener("change", () => {
-  const label = document.getElementById("file-drop-text");
-  label.textContent = fileInput.files[0] ? fileInput.files[0].name : "Choose an image or PDF";
-});
-
-document.getElementById("deposit-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const form = e.target;
-  const btn = document.getElementById("deposit-submit");
-  const formData = new FormData(form);
-
-  btn.disabled = true;
-  btn.textContent = "Submitting\u2026";
-
-  try {
-    const data = await apiFetch("/upload-receipt", { method: "POST", body: formData });
-    showBanner(data.message || "Deposit submitted", "success");
-    form.reset();
-    document.getElementById("file-drop-text").textContent = "Choose an image or PDF";
-    showScreen("balance");
-  } catch (err) {
-    showBanner(err.message, "error");
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Submit deposit";
-  }
-});
-
-// ---- Withdraw form ----
-document.querySelectorAll(".method-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".method-btn").forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-    const method = btn.dataset.method;
-    document.getElementById("withdraw-method").value = method;
-    document.getElementById("mpesa-fields").classList.toggle("hidden", method !== "mpesa");
-    document.getElementById("bank-fields").classList.toggle("hidden", method !== "bank");
-  });
-});
-
-document.getElementById("withdraw-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const form = e.target;
-  const btn = document.getElementById("withdraw-submit");
-  const formData = new FormData(form);
-  const payload = Object.fromEntries(formData.entries());
-
-  btn.disabled = true;
-  btn.textContent = "Submitting\u2026";
-
-  try {
-    const data = await apiFetch("/withdraw", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+        if (mpesaFields) mpesaFields.classList.toggle("hidden", selectedMethod !== "mpesa");
+        if (bankFields) bankFields.classList.toggle("hidden", selectedMethod !== "bank");
+        if (paypalFields) paypalFields.classList.toggle("hidden", selectedMethod !== "paypal");
+      });
     });
-    showBanner(data.message || "Withdrawal requested", "success");
-    form.reset();
-    showScreen("balance");
-  } catch (err) {
-    showBanner(err.message, "error");
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Request withdrawal";
   }
-});
 
-// ---- History ----
-let currentHistoryTab = "deposits";
+  /*
+  |--------------------------------------------------------------------------
+  | SCREEN NAVIGATION
+  |--------------------------------------------------------------------------
+  */
+  const navBtns = document.querySelectorAll("[data-nav]");
+  const screens = document.querySelectorAll(".screen");
 
-document.querySelectorAll(".history-tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".history-tab").forEach((t) => t.classList.remove("active"));
-    tab.classList.add("active");
-    currentHistoryTab = tab.dataset.tab;
-    loadHistory(currentHistoryTab);
+  navBtns.forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const targetNav = btn.dataset.nav;
+
+      screens.forEach((screen) => screen.classList.add("hidden"));
+      const targetScreen = document.getElementById(`screen-${targetNav}`);
+      if (targetScreen) targetScreen.classList.remove("hidden");
+
+      document.querySelectorAll(".nav-btn").forEach((b) => b.classList.remove("active"));
+      const activeBottomBtn = document.querySelector(`.nav-btn[data-nav="${targetNav}"]`);
+      if (activeBottomBtn) activeBottomBtn.classList.add("active");
+    });
   });
-});
 
-async function loadHistory(tab) {
-  const list = document.getElementById("history-list");
-  list.innerHTML = `<li class="empty-row">Loading\u2026</li>`;
-  try {
-    if (tab === "deposits") {
-      const deposits = await apiFetch("/deposits");
-      list.innerHTML = deposits.length
-        ? deposits.map(depositRow).join("")
-        : `<li class="empty-row">No deposits yet</li>`;
-    } else {
-      const withdrawals = await apiFetch("/withdrawals");
-      list.innerHTML = withdrawals.length
-        ? withdrawals.map(withdrawalRow).join("")
-        : `<li class="empty-row">No withdrawals yet</li>`;
-    }
-  } catch (err) {
-    list.innerHTML = `<li class="empty-row">Couldn't load history</li>`;
+  /*
+  |--------------------------------------------------------------------------
+  | WITHDRAW FORM SUBMISSION
+  |--------------------------------------------------------------------------
+  */
+  const withdrawForm = document.getElementById("withdraw-form");
+  if (withdrawForm) {
+    withdrawForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const formData = new FormData(withdrawForm);
+      const payload = Object.fromEntries(formData.entries());
+
+      try {
+        const session = (await sb.auth.getSession()).data.session;
+        if (!session) throw new Error("Please log in first.");
+
+        const res = await fetch(`${RENDER_BACKEND_URL}/withdraw`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Withdrawal failed");
+
+        alert("Withdrawal submitted successfully!");
+        withdrawForm.reset();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
   }
-}
-
-// Initial load and data fetch are handled by initAuth() on window "load".
+});
