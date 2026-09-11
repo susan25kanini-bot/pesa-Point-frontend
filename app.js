@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.classList.add("active");
 
         const selectedMethod = btn.dataset.method;
-        methodInput.value = selectedMethod;
+        if (methodInput) methodInput.value = selectedMethod;
 
         if (mpesaFields) mpesaFields.classList.toggle("hidden", selectedMethod !== "mpesa");
         if (bankFields) bankFields.classList.toggle("hidden", selectedMethod !== "bank");
@@ -61,10 +61,22 @@ document.addEventListener("DOMContentLoaded", () => {
     withdrawForm.addEventListener("submit", async (e) => {
       e.preventDefault();
 
+      const submitBtn = withdrawForm.querySelector("button[type='submit']");
       const formData = new FormData(withdrawForm);
       const payload = Object.fromEntries(formData.entries());
 
+      // Explicitly extract PayPal email input field if present
+      const paypalEmailInput = document.getElementById("paypal-email") || document.querySelector("input[name='paypalEmail']");
+      if (payload.method === "paypal" && paypalEmailInput) {
+        payload.paypalEmail = paypalEmailInput.value.trim();
+      }
+
       try {
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerText = "Processing Withdrawal...";
+        }
+
         const session = (await sb.auth.getSession()).data.session;
         if (!session) throw new Error("Please log in first.");
 
@@ -80,10 +92,25 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Withdrawal failed");
 
-        alert("Withdrawal submitted successfully!");
+        if (payload.method === "paypal") {
+          alert(`Instant PayPal payout successful! Sent $${data.amountUSD} USD.`);
+        } else {
+          alert("Withdrawal request submitted successfully!");
+        }
+
         withdrawForm.reset();
+
+        // Refresh balance on screen if function exists
+        if (typeof fetchUserBalance === "function") {
+          fetchUserBalance();
+        }
       } catch (err) {
         alert(err.message);
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerText = "Withdraw";
+        }
       }
     });
   }
