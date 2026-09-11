@@ -1,4 +1,35 @@
-document.addEventListener("DOMContentLoaded", () => {
+// Run immediately to avoid missing DOMContentLoaded
+(async () => {
+  /*
+  |--------------------------------------------------------------------------
+  | CONFIGURATION & INITIALIZATION
+  |--------------------------------------------------------------------------
+  */
+  const sb = supabase.createClient(
+    'https://pykgpjgazcqugwwsaduz.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5a2dwamdhemNxdWd3d3NhZHV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY0NDQxMzEsImV4cCI6MjEwMjAyMDEzMX0.RvFvbAtv695HDPTM1N_p0SXLEISf4PrtO0a48nLybqE'
+  );
+
+  const RENDER_BACKEND_URL = "https://pesa-point-backned-1.onrender.com".replace(/\/$/, "");
+  
+  // Wait a split second for elements to render
+  const authStatus = document.getElementById("authStatus");
+
+  try {
+    const { data: { session }, error } = await sb.auth.getSession();
+    if (error) throw error;
+
+    if (session) {
+      if (authStatus) authStatus.innerText = "Connected";
+      await fetchUserBalance(session.access_token);
+    } else {
+      if (authStatus) authStatus.innerText = "Not Logged In";
+    }
+  } catch (err) {
+    console.error("Auth check failed:", err);
+    if (authStatus) authStatus.innerText = "Connection Error";
+  }
+
   /*
   |--------------------------------------------------------------------------
   | METHOD TOGGLING (WITHDRAW SCREEN)
@@ -30,30 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /*
   |--------------------------------------------------------------------------
-  | SCREEN NAVIGATION
-  |--------------------------------------------------------------------------
-  */
-  const navBtns = document.querySelectorAll("[data-nav]");
-  const screens = document.querySelectorAll(".screen");
-
-  navBtns.forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      const targetNav = btn.dataset.nav;
-
-      screens.forEach((screen) => screen.classList.add("hidden"));
-      const targetScreen = document.getElementById(`screen-${targetNav}`);
-      if (targetScreen) targetScreen.classList.remove("hidden");
-
-      document.querySelectorAll(".nav-btn").forEach((b) => b.classList.remove("active"));
-      const activeBottomBtn = document.querySelector(`.nav-btn[data-nav="${targetNav}"]`);
-      if (activeBottomBtn) activeBottomBtn.classList.add("active");
-    });
-  });
-
-  /*
-  |--------------------------------------------------------------------------
-  | WITHDRAW FORM SUBMISSION
+  | FORM SUBMISSION (WITHDRAWAL REQUEST & PAYPAL INTEGRATION)
   |--------------------------------------------------------------------------
   */
   const withdrawForm = document.getElementById("withdraw-form");
@@ -61,57 +69,63 @@ document.addEventListener("DOMContentLoaded", () => {
     withdrawForm.addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const submitBtn = withdrawForm.querySelector("button[type='submit']");
-      const formData = new FormData(withdrawForm);
-      const payload = Object.fromEntries(formData.entries());
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) return alert("Please log in to initiate a withdrawal.");
 
-      // Explicitly extract PayPal email input field if present
-      const paypalEmailInput = document.getElementById("paypal-email") || document.querySelector("input[name='paypalEmail']");
-      if (payload.method === "paypal" && paypalEmailInput) {
-        payload.paypalEmail = paypalEmailInput.value.trim();
+      const method = methodInput ? methodInput.value : "mpesa";
+      const amount = document.getElementById("withdraw-amount")?.value;
+      const paypalEmail = document.getElementById("paypal-email")?.value;
+
+      if (method === "paypal" && (!paypalEmail || !paypalEmail.includes("@"))) {
+        return alert("Please enter a valid PayPal email address.");
       }
 
       try {
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.innerText = "Processing Withdrawal...";
-        }
-
-        const session = (await sb.auth.getSession()).data.session;
-        if (!session) throw new Error("Please log in first.");
-
-        const res = await fetch(`${RENDER_BACKEND_URL}/withdraw`, {
+        const response = await fetch(`${RENDER_BACKEND_URL}/withdraw`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            method: method,
+            amount: Number(amount),
+            details: method === "paypal" ? { email: paypalEmail } : {}
+          })
         });
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Withdrawal failed");
-
-        if (payload.method === "paypal") {
-          alert(`Instant PayPal payout successful! Sent $${data.amountUSD} USD.`);
+        const data = await response.json();
+        if (response.ok) {
+          alert("Withdrawal request processed successfully!");
+          fetchUserBalance(session.access_token);
         } else {
-          alert("Withdrawal request submitted successfully!");
-        }
-
-        withdrawForm.reset();
-
-        // Refresh balance on screen if function exists
-        if (typeof fetchUserBalance === "function") {
-          fetchUserBalance();
+          alert(`Error: ${data.error || "Withdrawal failed"}`);
         }
       } catch (err) {
-        alert(err.message);
-      } finally {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerText = "Withdraw";
-        }
+        console.error("Withdrawal error:", err);
+        alert("Failed to submit withdrawal request.");
       }
     });
   }
-});
+
+  /*
+  |--------------------------------------------------------------------------
+  | HELPER FUNCTIONS
+  |--------------------------------------------------------------------------
+  */
+  async function fetchUserBalance(token) {
+    try {
+      const res = await fetch(`${RENDER_BACKEND_URL}/balance`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        const balanceEl = document.getElementById("balance-value");
+        if (balanceEl) balanceEl.innerText = data.balance.toLocaleString();
+      }
+    } catch (err) {
+      console.error("Failed to fetch balance:", err);
+    }
+  }
+})();
