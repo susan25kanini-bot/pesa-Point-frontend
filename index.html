@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Pesa Points</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<link rel="stylesheet" href="style.css">
+
 </head>
 <body>
 
@@ -57,7 +58,7 @@
 
     <!-- DEPOSIT -->
     <section class="screen hidden" id="screen-deposit">
-      <h1 class="screen-title">Decposit</h1>
+      <h1 class="screen-title">Deposit</h1>
       <p class="screen-sub">Upload your payment receipt and we'll verify it.</p>
 
       <form id="deposit-form" class="form">
@@ -161,7 +162,7 @@
 
 <script>
 /* =========================================================
-   PESA POINTS CONFIGURATION (CORRECT)
+   PESA POINTS CONFIGURATION
    ========================================================= */
 
 const SUPABASE_URL =
@@ -170,8 +171,8 @@ const SUPABASE_URL =
 const SUPABASE_ANON_KEY =
   "sb_publishable_Xpi5gumCs5aFsfzEF4dGPg_yjUv9HaT";
 
-const pesa-point-frontend -vercel =
-  "https://pesa-point-frontend.vercel.app/";
+const RENDER_BACKEND_URL =
+  "https://pesa-point-backned-1.onrender.com";
 
 /* =========================================================
    SUPABASE CLIENT
