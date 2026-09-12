@@ -1,4 +1,3 @@
-// Run immediately to avoid missing DOMContentLoaded
 (async () => {
   /*
   |--------------------------------------------------------------------------
@@ -11,24 +10,11 @@
   );
 
   const RENDER_BACKEND_URL = "https://pesa-point-backned-1.onrender.com".replace(/\/$/, "");
-  
-  // Wait a split second for elements to render
   const authStatus = document.getElementById("authStatus");
 
-  try {
-    const { data: { session }, error } = await sb.auth.getSession();
-    if (error) throw error;
-
-    if (session) {
-      if (authStatus) authStatus.innerText = "Connected";
-      await fetchUserBalance(session.access_token);
-    } else {
-      if (authStatus) authStatus.innerText = "Not Logged In";
-    }
-  } catch (err) {
-    console.error("Auth check failed:", err);
-    if (authStatus) authStatus.innerText = "Connection Error";
-  }
+  // Set status directly to ready without checking login
+  if (authStatus) authStatus.innerText = "Ready";
+  fetchDefaultBalance();
 
   /*
   |--------------------------------------------------------------------------
@@ -69,9 +55,6 @@
     withdrawForm.addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const { data: { session } } = await sb.auth.getSession();
-      if (!session) return alert("Please log in to initiate a withdrawal.");
-
       const method = methodInput ? methodInput.value : "mpesa";
       const amount = document.getElementById("withdraw-amount")?.value;
       const paypalEmail = document.getElementById("paypal-email")?.value;
@@ -84,8 +67,7 @@
         const response = await fetch(`${RENDER_BACKEND_URL}/withdraw`, {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`
+            "Content-Type": "application/json"
           },
           body: JSON.stringify({
             method: method,
@@ -97,7 +79,7 @@
         const data = await response.json();
         if (response.ok) {
           alert("Withdrawal request processed successfully!");
-          fetchUserBalance(session.access_token);
+          fetchDefaultBalance();
         } else {
           alert(`Error: ${data.error || "Withdrawal failed"}`);
         }
@@ -113,16 +95,14 @@
   | HELPER FUNCTIONS
   |--------------------------------------------------------------------------
   */
-  async function fetchUserBalance(token) {
+  async function fetchDefaultBalance() {
     try {
-      const res = await fetch(`${RENDER_BACKEND_URL}/balance`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetch(`${RENDER_BACKEND_URL}/balance`);
       const data = await res.json();
 
       if (res.ok) {
         const balanceEl = document.getElementById("balance-value");
-        if (balanceEl) balanceEl.innerText = data.balance.toLocaleString();
+        if (balanceEl) balanceEl.innerText = (data.balance || 0).toLocaleString();
       }
     } catch (err) {
       console.error("Failed to fetch balance:", err);
