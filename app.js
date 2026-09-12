@@ -89,12 +89,41 @@
       }
     });
   }
-
+  
   /*
   |--------------------------------------------------------------------------
   | HELPER FUNCTIONS
   |--------------------------------------------------------------------------
   */
+  // Handle deposit form submission
+async function handleDeposit(event) {
+  if (event) event.preventDefault();
+  
+  const method = document.getElementById("deposit-method")?.value || "mpesa";
+  const amount = document.getElementById("deposit-amount")?.value;
+
+  try {
+    const res = await fetch(`${RENDER_BACKEND_URL}/deposit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ method, amount })
+    });
+    
+    const result = await res.json();
+    const msgEl = document.getElementById("deposit-message");
+    
+    if (res.ok) {
+      if (msgEl) msgEl.innerText = result.message;
+      let { data: { session } } = await supabaseClient.auth.getSession();
+      await fetchUserBalance(session?.access_token);
+      await fetchTransactionHistory();
+    } else {
+      if (msgEl) msgEl.innerText = result.error || "Deposit failed.";
+    }
+  } catch (err) {
+    console.error("Deposit network error:", err);
+  }
+}
   async function fetchDefaultBalance() {
     try {
       const res = await fetch(`${RENDER_BACKEND_URL}/balance`);
