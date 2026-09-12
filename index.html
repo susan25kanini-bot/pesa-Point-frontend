@@ -3,13 +3,109 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Pesa Points</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="icon href="data:,">
-<link rel="stylesheet" href="style.css">
-<script src="app.js" defer></script
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,Helvetica,sans-serif;}
+body{background:#eef3f7;color:#222;}
+
+.app{max-width:520px;margin:auto;min-height:100vh;background:#eef3f7;display:flex;flex-direction:column;}
+
+.app-header{
+  background:#0B8F47;color:white;padding:16px 18px;
+  display:flex;align-items:center;gap:10px;
+}
+.logo-mark{
+  width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.2);
+  display:flex;align-items:center;justify-content:center;font-weight:bold;
+}
+.logo-text{font-weight:bold;font-size:18px;flex:1;}
+.conn-status{font-size:13px;opacity:.9;}
+
+.banner{
+  padding:12px 18px;font-size:14px;
+}
+.banner.success{background:#ddffe8;color:#0B8F47;}
+.banner.error{background:#ffe5e5;color:#c40000;}
+.hidden{display:none !important;}
+
+.screen-area{flex:1;padding:18px;padding-bottom:90px;}
+.screen-title{font-size:22px;color:#0B8F47;margin-bottom:6px;}
+.screen-sub{color:#666;font-size:14px;margin-bottom:18px;}
+
+.balance-card{
+  background:linear-gradient(135deg,#0B8F47,#1fbf75);
+  color:white;border-radius:15px;padding:22px;margin-bottom:18px;
+}
+.balance-label{font-size:14px;opacity:.9;}
+.balance-amount{font-size:36px;font-weight:bold;margin:6px 0;}
+.balance-currency{font-size:13px;opacity:.85;}
+
+.quick-actions{display:flex;gap:12px;margin-bottom:18px;}
+.quick-btn{
+  flex:1;background:white;border:1px solid #ddd;border-radius:12px;
+  padding:14px;font-weight:bold;color:#0B8F47;cursor:pointer;
+}
+.quick-icon{margin-right:6px;}
+
+.panel{background:white;border-radius:15px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,.06);}
+.panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.panel-header h2{font-size:16px;}
+.link-btn{background:none;border:none;color:#0B8F47;font-weight:bold;cursor:pointer;}
+
+.mini-list, .full-list{list-style:none;}
+.mini-list li, .full-list li{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 0;border-bottom:1px solid #eee;
+}
+.empty-row{color:#888;padding:14px 0;justify-content:center;}
+.row-amount{font-weight:bold;}
+.row-meta{font-size:12px;color:#888;}
+.status-pill{
+  padding:3px 10px;border-radius:15px;font-size:12px;font-weight:bold;
+  text-transform:capitalize;
+}
+.status-completed{background:#d4edda;color:#155724;}
+.status-pending{background:#fff3cd;color:#856404;}
+.status-failed{background:#f8d7da;color:#721c24;}
+
+.form{display:flex;flex-direction:column;}
+.field{margin-bottom:16px;display:flex;flex-direction:column;}
+.field-label{font-weight:bold;color:#333;margin-bottom:6px;font-size:14px;}
+input, select{
+  padding:12px;border-radius:10px;border:1px solid #ccc;font-size:15px;
+}
+
+.calc-box{
+  background:#f1fff6;border-left:5px solid #0B8F47;border-radius:10px;
+  padding:12px 14px;margin-bottom:16px;font-size:14px;color:#333;
+}
+.calc-box b{color:#0B8F47;}
+
+.primary-btn{
+  border:none;border-radius:10px;padding:14px;cursor:pointer;
+  background:#0B8F47;color:white;font-size:16px;font-weight:bold;
+}
+.primary-btn:disabled{background:#999;}
+
+.bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;max-width:520px;margin:auto;
+  background:white;border-top:1px solid #eee;display:flex;
+}
+.nav-btn{
+  flex:1;background:none;border:none;padding:12px 0;color:#888;
+  font-size:12px;cursor:pointer;
+}
+.nav-btn.active{color:#0B8F47;font-weight:bold;}
+.nav-icon{display:block;font-size:18px;margin-bottom:2px;}
+
+.history-toggle{display:flex;gap:10px;margin-bottom:16px;}
+.history-tab{
+  flex:1;padding:10px;border-radius:10px;border:1px solid #ddd;
+  background:white;cursor:pointer;font-weight:bold;color:#666;
+}
+.history-tab.active{background:#0B8F47;color:white;border-color:#0B8F47;}
+</style>
 </head>
 <body>
 
@@ -18,8 +114,7 @@
   <header class="app-header">
     <span class="logo-mark">P</span>
     <span class="logo-text">Pesa Points</span>
-    <span class="conn-status" id="authStatus">Connecting&hellip;</span>
-    <span id="userIdDisplay" class="hidden"></span>
+    <span class="conn-status" id="connStatus">Connecting&hellip;</span>
   </header>
 
   <div id="banner" class="banner hidden"></div>
@@ -35,22 +130,16 @@
       </div>
 
       <div class="quick-actions">
-        <button class="quick-btn" data-nav="deposit">
-          <span class="quick-icon">&#8595;</span>
-          Deposit
-        </button>
-        <button class="quick-btn" data-nav="withdraw">
-          <span class="quick-icon">&#8593;</span>
-          Withdraw
-        </button>
+        <button class="quick-btn" data-nav="deposit"><span class="quick-icon">&#8595;</span>Deposit</button>
+        <button class="quick-btn" data-nav="withdraw"><span class="quick-icon">&#8593;</span>Withdraw</button>
       </div>
 
       <div class="panel">
         <div class="panel-header">
-          <h2>Recent deposits</h2>
+          <h2>Recent activity</h2>
           <button class="link-btn" data-nav="history">See all</button>
         </div>
-        <ul class="mini-list" id="recent-deposits">
+        <ul class="mini-list" id="recent-list">
           <li class="empty-row">Loading&hellip;</li>
         </ul>
       </div>
@@ -59,20 +148,25 @@
     <!-- DEPOSIT -->
     <section class="screen hidden" id="screen-deposit">
       <h1 class="screen-title">Deposit</h1>
-      <p class="screen-sub">Upload your payment receipt and we'll verify it.</p>
+      <p class="screen-sub">Add funds to your Pesa Points balance.</p>
+
+      <div class="calc-box" id="deposit-calc">
+        Enter an amount to see the USD equivalent.
+      </div>
 
       <form id="deposit-form" class="form">
         <label class="field">
           <span class="field-label">Amount (KES)</span>
-          <input type="number" name="amount" min="1" step="1" required placeholder="1000">
+          <input type="number" name="amount" id="deposit-amount" min="1" step="1" required placeholder="1000">
         </label>
 
         <label class="field">
-          <span class="field-label">Receipt</span>
-          <div class="file-drop" id="file-drop">
-            <span id="file-drop-text">Choose an image or PDF</span>
-            <input type="file" name="receipt" id="receipt-input" accept="image/jpeg,image/png,image/webp,application/pdf" required>
-          </div>
+          <span class="field-label">Method</span>
+          <select name="method">
+            <option value="mpesa">M-Pesa</option>
+            <option value="bank">Bank Transfer</option>
+            <option value="paypal">PayPal</option>
+          </select>
         </label>
 
         <button type="submit" class="primary-btn" id="deposit-submit">Submit deposit</button>
@@ -82,44 +176,24 @@
     <!-- WITHDRAW -->
     <section class="screen hidden" id="screen-withdraw">
       <h1 class="screen-title">Withdraw</h1>
-      <p class="screen-sub">Minimum withdrawal is KES 100.</p>
+      <p class="screen-sub">Withdrawals are sent straight to your PayPal account.</p>
 
-      <div class="method-toggle">
-        <button class="method-btn active" data-method="mpesa">M-Pesa</button>
-        <button class="method-btn" data-method="bank">Bank transfer</button>
+      <div class="calc-box" id="withdraw-calc">
+        Enter an amount to see the USD equivalent you'll receive.
       </div>
 
       <form id="withdraw-form" class="form">
-        <input type="hidden" name="method" id="withdraw-method" value="mpesa">
-
         <label class="field">
           <span class="field-label">Amount (KES)</span>
-          <input type="number" name="amount" min="100" step="1" required placeholder="500">
+          <input type="number" name="amount" id="withdraw-amount" min="1" step="1" required placeholder="500">
         </label>
 
-        <div id="mpesa-fields">
-          <label class="field">
-            <span class="field-label">M-Pesa phone number</span>
-            <input type="tel" name="phone" placeholder="07XXXXXXXX">
-          </label>
-        </div>
+        <label class="field">
+          <span class="field-label">PayPal email</span>
+          <input type="email" name="paypalEmail" required placeholder="you@example.com">
+        </label>
 
-        <div id="bank-fields" class="hidden">
-          <label class="field">
-            <span class="field-label">Bank name</span>
-            <input type="text" name="bank" placeholder="e.g. Equity Bank">
-          </label>
-          <label class="field">
-            <span class="field-label">Account number</span>
-            <input type="text" name="accountNumber" placeholder="0000000000">
-          </label>
-          <label class="field">
-            <span class="field-label">Account holder name</span>
-            <input type="text" name="accountName" placeholder="Full name">
-          </label>
-        </div>
-
-        <button type="submit" class="primary-btn" id="withdraw-submit">Request withdrawal</button>
+        <button type="submit" class="primary-btn" id="withdraw-submit">Send to PayPal</button>
       </form>
     </section>
 
@@ -128,8 +202,9 @@
       <h1 class="screen-title">History</h1>
 
       <div class="history-toggle">
-        <button class="history-tab active" data-tab="deposits">Deposits</button>
-        <button class="history-tab" data-tab="withdrawals">Withdrawals</button>
+        <button class="history-tab active" data-tab="all">All</button>
+        <button class="history-tab" data-tab="deposit">Deposits</button>
+        <button class="history-tab" data-tab="withdrawal">Withdrawals</button>
       </div>
 
       <ul class="full-list" id="history-list">
@@ -140,20 +215,17 @@
   </main>
 
   <nav class="bottom-nav">
-    <button class="nav-btn active" data-nav="balance">
-      <span class="nav-icon">&#9679;</span>
-      Balance
-    </button>
-    <button class="nav-btn" data-nav="deposit">
-      <span class="nav-icon">&#8595;</span>
-      Deposit
-    </button>
-    <button class="nav-btn" data-nav="withdraw">
-      <span class="nav-icon">&#8593;</span>
-      Withdraw
-    </button>
-    <button class="nav-btn" data-nav="history">
-      <span class="nav-icon">&#8801;</span>
-      History
-    </button>
-  </nav
+    <button class="nav-btn active" data-nav="balance"><span class="nav-icon">&#9679;</span>Balance</button>
+    <button class="nav-btn" data-nav="deposit"><span class="nav-icon">&#8595;</span>Deposit</button>
+    <button class="nav-btn" data-nav="withdraw"><span class="nav-icon">&#8593;</span>Withdraw</button>
+    <button class="nav-btn" data-nav="history"><span class="nav-icon">&#8801;</span>History</button>
+  </nav>
+
+</div>
+
+<script>
+const RENDER_BACKEND_URL = "https://pesa-point-backned-1.onrender.com";
+</script>
+<script src="app.js"></script>
+</body>
+</html>
