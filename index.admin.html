@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pesa Points — Admin</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,Helvetica,sans-serif;}
+body{background:#eef3f7;color:#222;}
+
+.app{max-width:640px;margin:auto;min-height:100vh;background:#eef3f7;padding:18px;}
+
+header{
+  background:#0B8F47;color:white;padding:16px 18px;border-radius:15px;
+  margin-bottom:18px;display:flex;align-items:center;gap:10px;
+}
+.logo-mark{
+  width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.2);
+  display:flex;align-items:center;justify-content:center;font-weight:bold;
+}
+header h1{font-size:18px;flex:1;}
+.conn-status{font-size:13px;opacity:.9;}
+
+.banner{padding:12px 18px;border-radius:10px;margin-bottom:16px;font-size:14px;}
+.banner.success{background:#ddffe8;color:#0B8F47;}
+.banner.error{background:#ffe5e5;color:#c40000;}
+.hidden{display:none !important;}
+
+/* ---- Login screen ---- */
+.login-card{
+  background:white;border-radius:15px;padding:24px;
+  box-shadow:0 4px 12px rgba(0,0,0,.06);
+}
+.login-card h2{margin-bottom:8px;color:#0B8F47;}
+.login-card p{color:#666;font-size:14px;margin-bottom:16px;}
+.field{margin-bottom:16px;display:flex;flex-direction:column;}
+.field-label{font-weight:bold;color:#333;margin-bottom:6px;font-size:14px;}
+input{padding:12px;border-radius:10px;border:1px solid #ccc;font-size:15px;}
+.primary-btn{
+  border:none;border-radius:10px;padding:14px;cursor:pointer;
+  background:#0B8F47;color:white;font-size:16px;font-weight:bold;width:100%;
+}
+.primary-btn:disabled{background:#999;}
+.link-btn{background:none;border:none;color:#0B8F47;font-weight:bold;cursor:pointer;font-size:13px;margin-top:10px;}
+
+/* ---- Withdrawals list ---- */
+.type-tabs{display:flex;gap:10px;margin-bottom:14px;}
+.type-tab{
+  flex:1;padding:11px;border-radius:10px;border:1px solid #ddd;
+  background:white;cursor:pointer;font-weight:bold;color:#666;font-size:14px;
+}
+.type-tab.active{background:#08733a;color:white;border-color:#08733a;}
+
+.toolbar{display:flex;gap:10px;margin-bottom:16px;align-items:center;}
+.status-toggle{display:flex;gap:8px;flex:1;}
+.status-btn{
+  flex:1;padding:9px;border-radius:10px;border:1px solid #ddd;
+  background:white;cursor:pointer;font-weight:bold;color:#666;font-size:13px;
+}
+.status-btn.active{background:#0B8F47;color:white;border-color:#0B8F47;}
+.refresh-btn{
+  padding:9px 14px;border-radius:10px;border:1px solid #ddd;background:white;
+  cursor:pointer;font-weight:bold;color:#0B8F47;font-size:13px;
+}
+
+.card-list{display:flex;flex-direction:column;gap:12px;}
+.w-card{
+  background:white;border-radius:15px;padding:16px;
+  box-shadow:0 4px 12px rgba(0,0,0,.06);
+}
+.w-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.w-amount{font-size:20px;font-weight:bold;color:#222;}
+.w-status{
+  padding:3px 10px;border-radius:15px;font-size:12px;font-weight:bold;
+  text-transform:capitalize;
+}
+.status-pending{background:#fff3cd;color:#856404;}
+.status-completed{background:#d4edda;color:#155724;}
+.status-rejected{background:#f8d7da;color:#721c24;}
+
+.w-meta{font-size:13px;color:#666;margin-bottom:12px;}
+.w-meta div{margin-bottom:3px;}
+
+.w-actions{display:flex;gap:10px;}
+.approve-btn, .reject-btn{
+  flex:1;border:none;border-radius:10px;padding:10px;cursor:pointer;
+  font-weight:bold;font-size:14px;
+}
+.approve-btn{background:#0B8F47;color:white;}
+.reject-btn{background:white;color:#c40000;border:1px solid #f8d7da;}
+.approve-btn:disabled, .reject-btn:disabled{opacity:.5;cursor:not-allowed;}
+
+.empty-row{text-align:center;color:#888;padding:30px 0;}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header>
+    <span class="logo-mark">P</span>
+    <h1>Pesa Points Admin</h1>
+    <span class="conn-status" id="connStatus"></span>
+  </header>
+
+  <div id="banner" class="banner hidden"></div>
+
+  <!-- LOGIN -->
+  <section id="login-screen">
+    <div class="login-card">
+      <h2>Admin Login</h2>
+      <p>Enter your admin key to review withdrawal requests.</p>
+
+      <form id="login-form">
+        <label class="field">
+          <span class="field-label">Admin Key</span>
+          <input type="password" id="admin-key-input" required placeholder="Paste your ADMIN_SECRET">
+        </label>
+        <button type="submit" class="primary-btn">Log in</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- REQUESTS -->
+  <section id="requests-screen" class="hidden">
+    <div class="type-tabs">
+      <button type="button" class="type-tab active" data-type="withdrawal">Withdrawals</button>
+      <button type="button" class="type-tab" data-type="deposit">Deposits</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="status-toggle">
+        <button type="button" class="status-btn active" data-status="pending">Pending</button>
+        <button type="button" class="status-btn" data-status="completed">Completed</button>
+        <button type="button" class="status-btn" data-status="rejected">Rejected</button>
+      </div>
+      <button type="button" class="refresh-btn" id="refresh-btn">Refresh</button>
+    </div>
+
+    <div class="card-list" id="requests-list">
+      <p class="empty-row">Loading&hellip;</p>
+    </div>
+
+    <button type="button" class="link-btn" id="logout-btn">Log out</button>
+  </section>
+
+</div>
+
+<script>
+const RENDER_BACKEND_URL = "https://pesa-point-backned-1.onrender.com";
+</script>
+<script src="admin.js"></script>
+</body>
+</html>
