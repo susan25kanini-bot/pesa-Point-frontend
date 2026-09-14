@@ -190,25 +190,6 @@ input, select{
     placeholder="Full Name">
 
 </div>
-// LOOP by NCBA
-else if (selectedMethod === "loop") {
-
-  const phone = loopNumber.value.trim();
-  const name = loopName.value.trim();
-
-  if (!/^(\+254|254|0)7\d{8}$/.test(phone)) {
-    showStatus("Enter a valid LOOP by NCBA mobile number.", true);
-    return;
-  }
-
-  if (!name) {
-    showStatus("Enter the LOOP account holder name.", true);
-    return;
-  }
-
-  body.phone = phone;
-  body.accountName = name;
-}
     
     <section class="screen hidden" id="screen-withdraw">
       <h1 class="screen-title">Withdraw</h1>
