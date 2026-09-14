@@ -121,7 +121,7 @@ input, select{
 
   <main class="screen-area" id="main-area">
 
-    <!-- BALANCE -->
+    <!-- BALANCE SCREEN -->
     <section class="screen" id="screen-balance">
       <div class="balance-card">
         <p class="balance-label">Available balance</p>
@@ -145,12 +145,13 @@ input, select{
       </div>
     </section>
 
-    <!-- DEPOSIT -->
+    <!-- DEPOSIT SCREEN -->
     <section class="screen hidden" id="screen-deposit">
       <h1 class="screen-title">Deposit</h1>
       <p class="screen-sub">Add funds to your Pesa Points balance.</p>
-     <div class="calc-box" id="deposit-calc">
-        Enter an amount to see the USD equivalent.
+      
+      <div class="calc-box" id="deposit-calc">
+        Enter an amount to see details.
       </div>
 
       <form id="deposit-form" class="form">
@@ -164,7 +165,7 @@ input, select{
           <select name="method">
             <option value="mpesa">M-Pesa</option>
             <option value="bank">Bank Transfer</option>
-  <option value="loop">LOOP by NCBA</option>
+            <option value="loop">LOOP by NCBA</option>
             <option value="paypal">PayPal</option>
           </select>
         </label>
@@ -173,48 +174,48 @@ input, select{
       </form>
     </section>
 
-    <!-- WITHDRAW -->
-   <!-- LOOP BY NCBA -->
-<div id="loopBox" style="display:none;">
-
-  <label>LOOP by NCBA Mobile Number</label>
-  <input
-    id="loopNumber"
-    type="tel"
-    placeholder="07XXXXXXXX">
-
-  <label>Account Holder Name</label>
-  <input
-    id="loopName"
-    type="text"
-    placeholder="Full Name">
-
-</div>
-    
+    <!-- WITHDRAW SCREEN -->
     <section class="screen hidden" id="screen-withdraw">
       <h1 class="screen-title">Withdraw</h1>
-      <p class="screen-sub">Withdrawals are sent straight to your PayPal account.</p>
-
-      <div class="calc-box" id="withdraw-calc">
-        Enter an amount to see the USD equivalent you'll receive.
-      </div>
+      <p class="screen-sub">Choose your payout destination.</p>
 
       <form id="withdraw-form" class="form">
+        <label class="field">
+          <span class="field-label">Withdrawal Method</span>
+          <select name="method" id="withdraw-method-select">
+            <option value="paypal">PayPal</option>
+            <option value="ncba">NCBA Bank / Loop</option>
+          </select>
+        </label>
+
         <label class="field">
           <span class="field-label">Amount (KES)</span>
           <input type="number" name="amount" id="withdraw-amount" min="1" step="1" required placeholder="500">
         </label>
 
-        <label class="field">
+        <!-- PAYPAL FIELDS -->
+        <div id="paypal-withdraw-fields" class="field">
           <span class="field-label">PayPal email</span>
-          <input type="email" name="paypalEmail" required placeholder="you@example.com">
-        </label>
+          <input type="email" name="paypalEmail" placeholder="you@example.com">
+        </div>
 
-        <button type="submit" class="primary-btn" id="withdraw-submit">Send to PayPal</button>
+        <!-- NCBA FIELDS -->
+        <div id="ncba-withdraw-fields" class="hidden">
+          <label class="field">
+            <span class="field-label">NCBA Account / Phone Number</span>
+            <input type="text" name="accountNumber" placeholder="07XXXXXXXX or Account No">
+          </label>
+          <label class="field">
+            <span class="field-label">Account Holder Name</span>
+            <input type="text" name="accountName" placeholder="Full Name">
+          </label>
+        </div>
+
+        <button type="submit" class="primary-btn" id="withdraw-submit">Process withdrawal</button>
       </form>
     </section>
 
-    <!-- HISTORY -->
+    <!-- HISTORY SCREEN -->
     <section class="screen hidden" id="screen-history">
       <h1 class="screen-title">History</h1>
 
@@ -242,7 +243,140 @@ input, select{
 
 <script>
 const RENDER_BACKEND_URL = "https://pesa-point-backned-1.onrender.com";
+
+// Frontend Navigation & UI Handler
+document.addEventListener("DOMContentLoaded", () => {
+  const connStatus = document.getElementById("connStatus");
+  const balanceValue = document.getElementById("balance-value");
+  const recentList = document.getElementById("recent-list");
+  const historyList = document.getElementById("history-list");
+  const banner = document.getElementById("banner");
+
+  function showBanner(msg, type = "success") {
+    banner.textContent = msg;
+    banner.className = `banner ${type}`;
+    setTimeout(() => banner.classList.add("hidden"), 4000);
+  }
+
+  // Navigation tabs
+  document.querySelectorAll("[data-nav]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const target = btn.dataset.nav;
+      document.querySelectorAll(".screen").forEach(s => s.classList.add("hidden"));
+      document.getElementById(`screen-${target}`).classList.remove("hidden");
+
+      document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+      const navBtn = document.querySelector(`.nav-btn[data-nav="${target}"]`);
+      if (navBtn) navBtn.classList.add("active");
+    });
+  });
+
+  // Withdraw method toggling
+  document.getElementById('withdraw-method-select')?.addEventListener('change', function(e) {
+    const val = e.target.value;
+    const paypalFields = document.getElementById('paypal-withdraw-fields');
+    const ncbaFields = document.getElementById('ncba-withdraw-fields');
+    
+    if (val === 'ncba') {
+      paypalFields.classList.add('hidden');
+      ncbaFields.classList.remove('hidden');
+    } else {
+      paypalFields.classList.remove('hidden');
+      ncbaFields.classList.add('hidden');
+    }
+  });
+
+  // Fetch Balance & Transactions
+  async function loadData() {
+    try {
+      connStatus.textContent = "Connected";
+      const [balRes, txRes] = await Promise.all([
+        fetch(`${RENDER_BACKEND_URL}/balance`),
+        fetch(`${RENDER_BACKEND_URL}/transactions`)
+      ]);
+
+      const balData = await balRes.json();
+      balanceValue.textContent = Number(balData.balance || 0).toLocaleString();
+
+      const txs = await txRes.json();
+      renderTransactions(txs);
+    } catch (err) {
+      connStatus.textContent = "Offline";
+      console.error(err);
+    }
+  }
+
+  function renderTransactions(txs) {
+    if (!txs.length) {
+      recentList.innerHTML = `<li class="empty-row">No recent activity</li>`;
+      historyList.innerHTML = `<li class="empty-row">No transaction history</li>`;
+      return;
+    }
+
+    recentList.innerHTML = txs.slice(0, 5).map(txRow).join('');
+    historyList.innerHTML = txs.map(txRow).join('');
+  }
+
+  function txRow(tx) {
+    return `
+      <li>
+        <div>
+          <div class="row-amount">${tx.type.toUpperCase()}: ${Number(tx.amount).toLocaleString()} KES</div>
+          <div class="row-meta">${new Date(tx.created_at).toLocaleString()} • ${tx.method}</div>
+        </div>
+        <span class="status-pill status-${tx.status}">${tx.status}</span>
+      </li>
+    `;
+  }
+
+  // Deposit Form Submit
+  document.getElementById("deposit-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = Object.fromEntries(new FormData(form));
+
+    try {
+      const res = await fetch(`${RENDER_BACKEND_URL}/deposit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      showBanner(data.message, "success");
+      form.reset();
+      loadData();
+    } catch (err) {
+      showBanner(err.message, "error");
+    }
+  });
+
+  // Withdraw Form Submit
+  document.getElementById("withdraw-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = Object.fromEntries(new FormData(form));
+
+    try {
+      const res = await fetch(`${RENDER_BACKEND_URL}/withdraw`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      showBanner(data.message, "success");
+      form.reset();
+      loadData();
+    } catch (err) {
+      showBanner(err.message, "error");
+    }
+  });
+
+  loadData();
+});
 </script>
-<script src="app.js"></script>
 </body>
 </html>
