@@ -149,8 +149,7 @@ input, select{
     <section class="screen hidden" id="screen-deposit">
       <h1 class="screen-title">Deposit</h1>
       <p class="screen-sub">Add funds to your Pesa Points balance.</p>
-
-      <div class="calc-box" id="deposit-calc">
+     <div class="calc-box" id="deposit-calc">
         Enter an amount to see the USD equivalent.
       </div>
 
@@ -174,6 +173,23 @@ input, select{
     </section>
 
     <!-- WITHDRAW -->
+   <!-- LOOP BY NCBA -->
+<div id="loopBox" style="display:none;">
+
+  <label>LOOP by NCBA Mobile Number</label>
+  <input
+    id="loopNumber"
+    type="tel"
+    placeholder="07XXXXXXXX">
+
+  <label>Account Holder Name</label>
+  <input
+    id="loopName"
+    type="text"
+    placeholder="Full Name">
+
+</div>
+    
     <section class="screen hidden" id="screen-withdraw">
       <h1 class="screen-title">Withdraw</h1>
       <p class="screen-sub">Withdrawals are sent straight to your PayPal account.</p>
